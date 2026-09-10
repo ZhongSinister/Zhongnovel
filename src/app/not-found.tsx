@@ -5,14 +5,14 @@ import { Button } from '@/components/ui/button';
 export default function NotFound() {
   return (
     <div className="mx-auto w-full max-w-2xl px-5 py-16 text-center">
-      <h1 className="text-2xl font-semibold tracking-tight">ไม่พบหน้านี้</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Page not found</h1>
       <p className="mt-2 text-muted-foreground">
-        ลิงก์อาจเปลี่ยนไปแล้ว หรือตอนนี้ถูกย้าย/ลบออกจากสารบัญ
+        The link may have changed, or this chapter was moved or removed from the contents.
       </p>
       <Button asChild variant="outline" size="lg" className="mt-6">
         <Link href="/">
           <ArrowLeft />
-          กลับไปที่สารบัญ
+          Back to contents
         </Link>
       </Button>
     </div>

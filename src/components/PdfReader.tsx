@@ -71,7 +71,7 @@ export default function PdfReader({ file, title }: Props) {
   }, []);
 
   const onError = useCallback((err: Error) => {
-    setError(err?.message || 'ไม่สามารถเปิดไฟล์ PDF ได้');
+    setError(err?.message || 'Could not open the PDF file');
   }, []);
 
   // Highlight whichever page is nearest the middle of the viewport.
@@ -135,7 +135,7 @@ export default function PdfReader({ file, title }: Props) {
           size="icon-sm"
           onClick={() => setZoomIndex((i) => Math.max(i - 1, 0))}
           disabled={zoomIndex === 0}
-          aria-label="ย่อ"
+          aria-label="Zoom out"
         >
           <Minus />
         </Button>
@@ -144,7 +144,7 @@ export default function PdfReader({ file, title }: Props) {
           size="sm"
           className="min-w-13 tabular-nums text-muted-foreground"
           onClick={() => setZoomIndex(DEFAULT_ZOOM)}
-          title="รีเซ็ตขนาด (กด 0)"
+          title="Reset zoom (press 0)"
         >
           {Math.round(zoom * 100)}%
         </Button>
@@ -153,7 +153,7 @@ export default function PdfReader({ file, title }: Props) {
           size="icon-sm"
           onClick={() => setZoomIndex((i) => Math.min(i + 1, ZOOM_STEPS.length - 1))}
           disabled={zoomIndex === ZOOM_STEPS.length - 1}
-          aria-label="ขยาย"
+          aria-label="Zoom in"
         >
           <Plus />
         </Button>
@@ -163,7 +163,7 @@ export default function PdfReader({ file, title }: Props) {
         <Button asChild variant="outline" size="sm">
           <a href={file} download>
             <Download />
-            ดาวน์โหลด
+            Download
           </a>
         </Button>
       </div>
@@ -178,10 +178,10 @@ export default function PdfReader({ file, title }: Props) {
           loading={
             <div className="flex flex-col items-center gap-3 py-10">
               <Skeleton className="aspect-[1/1.414] w-full max-w-[860px]" />
-              <p className="text-sm text-muted-foreground">กำลังโหลด “{title}”…</p>
+              <p className="text-sm text-muted-foreground">Loading “{title}”…</p>
             </div>
           }
-          error={<Failed message="ไม่สามารถเปิดไฟล์ PDF ได้" file={file} />}
+          error={<Failed message="Could not open the PDF file" file={file} />}
         >
           <div className="flex flex-col items-center gap-4">
             {Array.from({ length: numPages }, (_, i) => (
@@ -212,11 +212,11 @@ export default function PdfReader({ file, title }: Props) {
 function Failed({ message, file }: { message: string; file: string }) {
   return (
     <div className="py-14 text-center">
-      <h2 className="text-lg font-semibold">เปิดไฟล์ไม่สำเร็จ</h2>
+      <h2 className="text-lg font-semibold">Failed to open the file</h2>
       <p className="mt-1.5 text-sm text-muted-foreground">{message}</p>
       <Button asChild variant="outline" size="lg" className="mt-5">
         <a href={file} target="_blank" rel="noopener noreferrer">
-          เปิด PDF ในแท็บใหม่
+          Open the PDF in a new tab
         </a>
       </Button>
     </div>

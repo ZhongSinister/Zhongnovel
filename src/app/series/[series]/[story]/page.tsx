@@ -13,30 +13,33 @@ import {
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { arcHref, getStory, stories } from '@/lib/content';
+import { allSeries, arcHref, getStory, plural, seriesHref } from '@/lib/content';
 
-type Params = { story: string };
+type Params = { series: string; story: string };
 
 // Every route is known at build time; nothing may be generated on demand.
 export const dynamicParams = false;
 
 export function generateStaticParams(): Params[] {
-  return stories.map((s) => ({ story: s.slug }));
+  return allSeries.flatMap((se) => se.stories.map((s) => ({ series: se.slug, story: s.slug })));
 }
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
-  const { story } = await params;
-  const found = getStory(story);
+  const { series, story } = await params;
+  const found = getStory(series, story);
+  if (!found) return { title: 'Story not found' };
   return {
-    title: found?.title ?? 'ไม่พบเรื่องนี้',
-    description: found?.description || undefined,
+    title: `${found.story.title} · ${found.series.title}`,
+    description: found.story.description || undefined,
   };
 }
 
 export default async function StoryPage({ params }: { params: Promise<Params> }) {
-  const { story: storySlug } = await params;
-  const story = getStory(storySlug);
-  if (!story) notFound();
+  const { series: seriesSlug, story: storySlug } = await params;
+  const found = getStory(seriesSlug, storySlug);
+  if (!found) notFound();
+
+  const { series, story } = found;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-5">
@@ -44,12 +47,18 @@ export default async function StoryPage({ params }: { params: Promise<Params> })
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/">สารบัญ</Link>
+              <Link href="/">Contents</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>เรื่องที่ {story.number}</BreadcrumbPage>
+            <BreadcrumbLink asChild>
+              <Link href={seriesHref(series)}>{series.title}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Story {story.number}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -61,24 +70,25 @@ export default async function StoryPage({ params }: { params: Promise<Params> })
 
       {story.arcs.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
-          เรื่องนี้ยังไม่มีภาค — สร้างโฟลเดอร์ภาคไว้ในโฟลเดอร์ของเรื่องนี้ วางไฟล์ PDF แล้วบิลด์ใหม่อีกครั้ง
+          This story has no arcs yet. Create an arc folder inside the story folder, add PDFs, and
+          rebuild.
         </p>
       ) : (
         <ul className="flex flex-col gap-2.5">
           {story.arcs.map((arc) => (
             <li key={arc.slug}>
-              <Link href={arcHref(story, arc)} className="group block">
+              <Link href={arcHref(series, story, arc)} className="group block">
                 <Card className="transition-colors group-hover:border-ring/60">
                   <CardHeader>
                     <Badge variant="secondary" className="mb-1.5 w-fit font-normal">
-                      ภาคที่ {arc.number}
+                      Arc {arc.number}
                     </Badge>
                     <CardTitle className="text-lg">{arc.title}</CardTitle>
                     {arc.description && (
                       <p className="text-sm text-muted-foreground">{arc.description}</p>
                     )}
                     <CardDescription className="flex items-center gap-1">
-                      {arc.chapters.length} ตอน
+                      {arc.chapters.length} {plural(arc.chapters.length, 'chapter', 'chapters')}
                       <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
                     </CardDescription>
                   </CardHeader>

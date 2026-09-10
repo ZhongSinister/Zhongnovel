@@ -7,7 +7,8 @@
  *
  * Delete pdf/ and replace it with your own stories when you're ready.
  *
- * Layout written: pdf/<story>/story.json, pdf/<story>/<arc>/arc.json, pdf/<story>/<arc>/<chapter>.pdf
+ * Layout written: pdf/<series>/series.json, pdf/<series>/<story>/story.json,
+ *                 pdf/<series>/<story>/<arc>/arc.json, pdf/<series>/<story>/<arc>/<chapter>.pdf
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -132,6 +133,14 @@ She folded the letter along its old creases until it was small enough to disappe
 
 That was the first lie of many, and she would remember it later with something close to fondness — the last small untruth she told before the large ones became necessary.`;
 
+const SERIES = {
+  dir: '01-zhongnovel',
+  series: {
+    title: 'zhongnovel',
+    description: 'One world, told across several lifetimes.',
+  },
+};
+
 const SAMPLE = [
   {
     dir: '01-the-quiet-year',
@@ -181,8 +190,15 @@ async function main() {
   let created = 0;
   let skipped = 0;
 
+  const seriesDir = path.join(PDF_DIR, SERIES.dir);
+  await fs.mkdir(seriesDir, { recursive: true });
+  const seriesMeta = path.join(seriesDir, 'series.json');
+  if (FORCE || !(await exists(seriesMeta))) {
+    await fs.writeFile(seriesMeta, `${JSON.stringify(SERIES.series, null, 2)}\n`);
+  }
+
   for (const story of SAMPLE) {
-    const storyDir = path.join(PDF_DIR, story.dir);
+    const storyDir = path.join(seriesDir, story.dir);
     await fs.mkdir(storyDir, { recursive: true });
 
     const storyMeta = path.join(storyDir, 'story.json');

@@ -12,35 +12,48 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Card } from '@/components/ui/card';
 import ChapterView from '@/components/ChapterView';
-import { arcHref, asset, chapterHref, getChapter, neighbours, stories, storyHref } from '@/lib/content';
+import {
+  allSeries,
+  arcHref,
+  asset,
+  chapterHref,
+  getChapter,
+  neighbours,
+  seriesHref,
+  storyHref,
+} from '@/lib/content';
 
-type Params = { story: string; arc: string; chapter: string };
+type Params = { series: string; story: string; arc: string; chapter: string };
 
 export const dynamicParams = false;
 
 export function generateStaticParams(): Params[] {
-  return stories.flatMap((s) =>
-    s.arcs.flatMap((a) => a.chapters.map((c) => ({ story: s.slug, arc: a.slug, chapter: c.slug })))
+  return allSeries.flatMap((se) =>
+    se.stories.flatMap((s) =>
+      s.arcs.flatMap((a) =>
+        a.chapters.map((c) => ({ series: se.slug, story: s.slug, arc: a.slug, chapter: c.slug }))
+      )
+    )
   );
 }
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
-  const { story, arc, chapter } = await params;
-  const found = getChapter(story, arc, chapter);
-  if (!found) return { title: 'ไม่พบตอนนี้' };
+  const { series, story, arc, chapter } = await params;
+  const found = getChapter(series, story, arc, chapter);
+  if (!found) return { title: 'Chapter not found' };
   return {
     title: found.chapter.title,
-    description: `${found.story.title} — ${found.arc.title} — ${found.chapter.title}`,
+    description: `${found.series.title} — ${found.story.title} — ${found.arc.title} — ${found.chapter.title}`,
   };
 }
 
 export default async function ReadPage({ params }: { params: Promise<Params> }) {
-  const { story: storySlug, arc: arcSlug, chapter: chapterSlug } = await params;
-  const found = getChapter(storySlug, arcSlug, chapterSlug);
+  const { series: seriesSlug, story: storySlug, arc: arcSlug, chapter: chapterSlug } = await params;
+  const found = getChapter(seriesSlug, storySlug, arcSlug, chapterSlug);
   if (!found) notFound();
 
-  const { story, arc, chapter } = found;
-  const { prev, next } = neighbours(storySlug, arcSlug, chapterSlug);
+  const { series, story, arc, chapter } = found;
+  const { prev, next } = neighbours(seriesSlug, storySlug, arcSlug, chapterSlug);
 
   return (
     <div className="mx-auto w-full max-w-4xl px-5">
@@ -48,19 +61,25 @@ export default async function ReadPage({ params }: { params: Promise<Params> }) 
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/">สารบัญ</Link>
+              <Link href="/">Contents</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href={storyHref(story)}>{story.title}</Link>
+              <Link href={seriesHref(series)}>{series.title}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href={arcHref(story, arc)}>{arc.title}</Link>
+              <Link href={storyHref(series, story)}>{story.title}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href={arcHref(series, story, arc)}>{arc.title}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
@@ -74,17 +93,17 @@ export default async function ReadPage({ params }: { params: Promise<Params> }) 
 
       <ChapterView file={asset(chapter.file)} title={chapter.title} />
 
-      <nav className="mt-8 grid gap-2.5 sm:grid-cols-2" aria-label="ตอนก่อนหน้า / ตอนถัดไป">
+      <nav className="mt-8 grid gap-2.5 sm:grid-cols-2" aria-label="Previous / next chapter">
         <PagerSlot
-          href={prev ? chapterHref(prev.story, prev.arc, prev.chapter) : undefined}
-          label="ตอนก่อนหน้า"
-          title={prev?.chapter.title ?? 'นี่คือตอนแรกของเรื่อง'}
+          href={prev ? chapterHref(prev.series, prev.story, prev.arc, prev.chapter) : undefined}
+          label="Previous chapter"
+          title={prev?.chapter.title ?? 'This is the first chapter of the story'}
           icon={<ArrowLeft className="size-3.5" />}
         />
         <PagerSlot
-          href={next ? chapterHref(next.story, next.arc, next.chapter) : undefined}
-          label="ตอนถัดไป"
-          title={next?.chapter.title ?? 'จบเท่าที่มีตอนนี้'}
+          href={next ? chapterHref(next.series, next.story, next.arc, next.chapter) : undefined}
+          label="Next chapter"
+          title={next?.chapter.title ?? 'You have reached the latest chapter'}
           icon={<ArrowRight className="size-3.5" />}
           align="end"
         />

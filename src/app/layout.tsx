@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Geist, Noto_Sans_Thai } from 'next/font/google';
 import { cn } from '@/lib/utils';
-import { content } from '@/lib/content';
+import { content, plural } from '@/lib/content';
 import './globals.css';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist', display: 'swap' });
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     /* `dark` is hard-coded: one theme, no toggle, no flash of the wrong palette. */
-    <html lang="th" className={cn('dark font-sans', geist.variable, thai.variable)}>
+    <html lang="en" className={cn('dark font-sans', geist.variable, thai.variable)}>
       <body className="min-h-svh bg-background text-foreground antialiased">
         <div className="flex min-h-svh flex-col">
           <header className="border-b border-border">
@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="mx-auto flex h-13 w-full max-w-4xl items-center gap-4 px-5 text-xs text-muted-foreground">
               <span>© {new Date().getFullYear()} zhongnovel</span>
               <span>
-                {content.totals.stories} เรื่อง · {content.totals.arcs} ภาค · {content.totals.chapters} ตอน
+                {content.totals.series} series · {content.totals.stories} {plural(content.totals.stories, 'story', 'stories')} · {content.totals.arcs} {plural(content.totals.arcs, 'arc', 'arcs')} · {content.totals.chapters} {plural(content.totals.chapters, 'chapter', 'chapters')}
               </span>
             </div>
           </footer>

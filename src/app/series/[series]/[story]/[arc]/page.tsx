@@ -10,21 +10,23 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { Separator } from '@/components/ui/separator';
-import { chapterHref, formatBytes, getArc, stories, storyHref } from '@/lib/content';
+import { allSeries, chapterHref, formatBytes, getArc, seriesHref, storyHref } from '@/lib/content';
 
-type Params = { story: string; arc: string };
+type Params = { series: string; story: string; arc: string };
 
 // Every route is known at build time; nothing may be generated on demand.
 export const dynamicParams = false;
 
 export function generateStaticParams(): Params[] {
-  return stories.flatMap((s) => s.arcs.map((a) => ({ story: s.slug, arc: a.slug })));
+  return allSeries.flatMap((se) =>
+    se.stories.flatMap((s) => s.arcs.map((a) => ({ series: se.slug, story: s.slug, arc: a.slug })))
+  );
 }
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
-  const { story, arc } = await params;
-  const found = getArc(story, arc);
-  if (!found) return { title: 'ไม่พบภาคนี้' };
+  const { series, story, arc } = await params;
+  const found = getArc(series, story, arc);
+  if (!found) return { title: 'Arc not found' };
   return {
     title: `${found.arc.title} · ${found.story.title}`,
     description: found.arc.description || undefined,
@@ -32,11 +34,11 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 }
 
 export default async function ArcPage({ params }: { params: Promise<Params> }) {
-  const { story: storySlug, arc: arcSlug } = await params;
-  const found = getArc(storySlug, arcSlug);
+  const { series: seriesSlug, story: storySlug, arc: arcSlug } = await params;
+  const found = getArc(seriesSlug, storySlug, arcSlug);
   if (!found) notFound();
 
-  const { story, arc } = found;
+  const { series, story, arc } = found;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-5">
@@ -44,18 +46,24 @@ export default async function ArcPage({ params }: { params: Promise<Params> }) {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/">สารบัญ</Link>
+              <Link href="/">Contents</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href={storyHref(story)}>{story.title}</Link>
+              <Link href={seriesHref(series)}>{series.title}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>ภาคที่ {arc.number}</BreadcrumbPage>
+            <BreadcrumbLink asChild>
+              <Link href={storyHref(series, story)}>{story.title}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Arc {arc.number}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -67,14 +75,14 @@ export default async function ArcPage({ params }: { params: Promise<Params> }) {
 
       {arc.chapters.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
-          ภาคนี้ยังไม่มีตอน — เพิ่มไฟล์ PDF ลงในโฟลเดอร์ของภาคนี้แล้วบิลด์ใหม่อีกครั้ง
+          This arc has no chapters yet. Add PDF files to the arc folder and rebuild.
         </p>
       ) : (
         <ul className="border-t border-border">
           {arc.chapters.map((ch, i) => (
             <li key={ch.slug}>
               <Link
-                href={chapterHref(story, arc, ch)}
+                href={chapterHref(series, story, arc, ch)}
                 className="flex items-baseline gap-3.5 border-b border-border px-1 py-3.5 text-sm transition-colors hover:text-muted-foreground"
               >
                 <span className="min-w-6 tabular-nums text-xs text-muted-foreground">

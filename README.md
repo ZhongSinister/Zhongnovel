@@ -15,29 +15,34 @@ Everything the site shows comes from the `pdf/` folder at the repo root:
 
 ```
 pdf/
-├── 01-the-quiet-year/                 <- เรื่อง (story)
-│   ├── story.json                     (optional)
-│   ├── 01-the-letter/                 <- ภาค (arc)
-│   │   ├── arc.json                   (optional)
-│   │   ├── 01-a-house-of-shut-doors.pdf   <- ตอน (chapter)
-│   │   ├── 02-what-the-rain-carried.pdf
-│   │   └── 03-the-first-lie.pdf
-│   └── 02-salt-and-iron/
-│       ├── arc.json
-│       ├── 01-the-road-south.pdf
-│       └── 02-the-weight-of-names.pdf
-└── 02-the-lantern-coast/
-    ├── story.json
-    └── 01-low-tide/
-        ├── arc.json
-        ├── 01-the-bottle.pdf
-        └── 02-the-keeper.pdf
+└── 01-zhongnovel/                          <- series (the whole work: "Harry Potter", "Dune")
+    ├── series.json                         (optional)
+    ├── 01-the-quiet-year/                  <- story (a character, era or timeline)
+    │   ├── story.json                      (optional)
+    │   ├── 01-the-letter/                  <- arc
+    │   │   ├── arc.json                    (optional)
+    │   │   ├── 01-a-house-of-shut-doors.pdf    <- chapter
+    │   │   ├── 02-what-the-rain-carried.pdf
+    │   │   └── 03-the-first-lie.pdf
+    │   └── 02-salt-and-iron/
+    │       ├── arc.json
+    │       ├── 01-the-road-south.pdf
+    │       └── 02-the-weight-of-names.pdf
+    └── 02-the-lantern-coast/
+        ├── story.json
+        └── 01-low-tide/
+            ├── arc.json
+            ├── 01-the-bottle.pdf
+            └── 02-the-keeper.pdf
 ```
 
-Three levels: a top-level folder is a **story** (เรื่อง — it can be a different
-character, era or timeline), a folder inside it is an **arc** (ภาค) of that
-story, and each PDF inside an arc is a **chapter** (ตอน). That is the whole
-content model.
+Four levels: a top-level folder is a **series** (the whole work, the way
+"Harry Potter" or "Dune" is one series), a folder inside it is a **story** (a
+character, era or timeline within that series), a folder inside a story is an
+**arc**, and each PDF inside an arc is a **chapter**. That is the whole content
+model.
+
+The home page always lists the series, even when there is only one.
 
 `scripts/build-content.mjs` runs before every `dev` and `build`. It scans that
 folder, copies the PDFs into `public/pdf/`, and writes
@@ -50,13 +55,13 @@ manifest by hand.
 |---|---|
 | `01-`, `02_`, `3 ` prefix | Sets the sort order, and is stripped from the displayed title |
 | `the-letter.pdf` | Displayed as "The Letter"; dashes and underscores become spaces |
-| Thai or other non-Latin names | Kept as the display title; the URL falls back to `story-01` / `arc-01` / `ch-01` so links stay ASCII |
+| Thai or other non-Latin names | Kept as the display title; the URL falls back to `series-01` / `story-01` / `arc-01` / `ch-01` so links stay ASCII |
 | No number prefix | Sorts last, alphabetically |
 
-### `story.json` and `arc.json` (optional)
+### `series.json`, `story.json` and `arc.json` (optional)
 
-Put `story.json` in a story folder, or `arc.json` in an arc folder, to override
-what is shown:
+Put `series.json` in a series folder, `story.json` in a story folder, or
+`arc.json` in an arc folder, to override what is shown:
 
 ```json
 {
@@ -75,9 +80,9 @@ name.
 
 1. Export your chapter as a PDF. **Embed the fonts** — especially for Thai text.
    A PDF without embedded fonts can render with missing glyphs in the browser.
-2. Save it into the right story and arc folder with a number prefix:
-   `pdf/01-the-quiet-year/01-the-letter/04-the-long-road.pdf`
-   (make a new arc folder, or a new story folder, the same way)
+2. Save it into the right series, story and arc folder with a number prefix:
+   `pdf/01-zhongnovel/01-the-quiet-year/01-the-letter/04-the-long-road.pdf`
+   (make a new arc, story or series folder the same way)
 3. Run `npm run dev` and check it locally.
 4. Commit and push. The GitHub Actions workflow rebuilds and redeploys the site.
 
@@ -102,18 +107,20 @@ Nothing else needs to change — no route, no config, no list to update.
 ## Project structure
 
 ```
-pdf/                        your stories/arcs/chapters — the only folder you edit day to day
+pdf/                        series/stories/arcs/chapters — the only folder you edit day to day
 scripts/
   build-content.mjs         pdf/ -> public/pdf/ + manifest.json
   make-sample-pdfs.mjs      generates the placeholder chapters
 src/
   app/
-    page.tsx                table of contents (list of stories)
-    story/[story]/          arc list for one story
-    story/[story]/[arc]/    chapter list for one arc
-    read/[story]/[arc]/[chapter]/   the reader page
+    page.tsx                home: list of series
+    series/[series]/        story list for one series
+    series/[series]/[story]/        arc list for one story
+    series/[series]/[story]/[arc]/  chapter list for one arc
+    read/[series]/[story]/[arc]/[chapter]/   the reader page
     globals.css             Tailwind entry + shadcn theme tokens (dark only)
   components/
+    StoryList.tsx           story cards for the series page
     ui/                     shadcn/ui components — owned by this repo, edit freely
     ChapterView.tsx         client-only boundary for the reader
     PdfReader.tsx           the pdf.js reader itself
@@ -138,6 +145,10 @@ committed; the copies are not.
 - Selectable text, so browser find-in-page works on the chapter
 - Previous / next chapter navigation that continues across arcs, but stays
   inside the current story
+
+The UI text is English only. The `<html>` element is `lang="en"`, and the Noto
+Sans Thai font stays loaded so Thai chapter titles taken from file names still
+render well.
 
 The UI is a single dark theme. `<html>` carries the `dark` class permanently,
 so the light palette in `globals.css` is never used and there is no toggle.
@@ -177,6 +188,6 @@ from a branch" — Next.js does not commit built HTML to the repo, so serving th
 ## Notes
 
 - The PDFs currently in `pdf/` are placeholders generated by
-  `npm run samples`. Delete them and add your own stories.
+  `npm run samples`. Delete them and add your own series.
 - pdf.js cMaps and standard fonts are copied into `public/pdfjs/` at build time,
   which is what lets Thai and other non-Latin glyphs render.

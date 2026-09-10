@@ -5,10 +5,11 @@
  *   3. public/pdf.worker.min.js  – the pdf.js worker, version-matched
  *   4. public/pdfjs/{cmaps,standard_fonts} – glyph data for pdf.js
  *
- * Expected source layout (story -> arc -> chapter):
- *   pdf/<story folder>/story.json                  (optional: { title, description, slug })
- *   pdf/<story folder>/<arc folder>/arc.json       (optional: { title, description, slug })
- *   pdf/<story folder>/<arc folder>/<chapter>.pdf
+ * Expected source layout (series -> story -> arc -> chapter):
+ *   pdf/<series folder>/series.json                                (optional: { title, description, slug })
+ *   pdf/<series folder>/<story folder>/story.json                  (optional: { title, description, slug })
+ *   pdf/<series folder>/<story folder>/<arc folder>/arc.json       (optional: { title, description, slug })
+ *   pdf/<series folder>/<story folder>/<arc folder>/<chapter>.pdf
  *
  * A leading number ("01-", "02_", "3 ") sets the sort order and is
  * stripped from the display title.
@@ -44,7 +45,7 @@ function toTitle(raw) {
 
 /**
  * URL-safe slug. Thai/CJK titles collapse to empty, so callers pass a
- * fallback ("story-01") to keep every route ASCII and static-export safe.
+ * fallback ("series-01") to keep every route ASCII and static-export safe.
  */
 function slugify(raw, fallback) {
   const slug = raw
@@ -99,10 +100,10 @@ function slugPool(prefix) {
   };
 }
 
-async function buildChapters(arcDir, storySlug, arcSlug) {
+async function buildChapters(arcDir, urlBase) {
   const chapters = [];
   const nextSlug = slugPool('ch');
-  const outDir = path.join(OUT_PDF, storySlug, arcSlug);
+  const outDir = path.join(OUT_PDF, ...urlBase);
 
   for (const [j, ch] of (await orderedPdfs(arcDir)).entries()) {
     const slug = nextSlug(ch.rest, j + 1);
@@ -117,7 +118,7 @@ async function buildChapters(arcDir, storySlug, arcSlug) {
       slug,
       title: toTitle(ch.rest),
       number: Number.isFinite(ch.order) ? ch.order : j + 1,
-      file: `/pdf/${storySlug}/${arcSlug}/${destName}`,
+      file: `/pdf/${urlBase.join('/')}/${destName}`,
       bytes: size,
       updated: mtime.toISOString(),
     });
@@ -125,7 +126,7 @@ async function buildChapters(arcDir, storySlug, arcSlug) {
   return chapters;
 }
 
-async function buildArcs(storyDir, storySlug) {
+async function buildArcs(storyDir, urlBase) {
   const arcs = [];
   const nextSlug = slugPool('arc');
 
@@ -139,18 +140,18 @@ async function buildArcs(storyDir, storySlug) {
       title: meta.title ?? toTitle(arc.rest),
       description: meta.description ?? '',
       number: Number.isFinite(arc.order) ? arc.order : i + 1,
-      chapters: await buildChapters(arcDir, storySlug, arcSlug),
+      chapters: await buildChapters(arcDir, [...urlBase, arcSlug]),
     });
   }
   return arcs;
 }
 
-async function buildStories() {
+async function buildStories(seriesDir, urlBase) {
   const stories = [];
   const nextSlug = slugPool('story');
 
-  for (const [i, story] of (await orderedDirs(SRC_PDF)).entries()) {
-    const storyDir = path.join(SRC_PDF, story.name);
+  for (const [i, story] of (await orderedDirs(seriesDir)).entries()) {
+    const storyDir = path.join(seriesDir, story.name);
     const meta = (await readJson(path.join(storyDir, 'story.json'))) ?? {};
     const storySlug = nextSlug(meta.slug ?? story.rest, i + 1);
 
@@ -159,10 +160,30 @@ async function buildStories() {
       title: meta.title ?? toTitle(story.rest),
       description: meta.description ?? '',
       number: Number.isFinite(story.order) ? story.order : i + 1,
-      arcs: await buildArcs(storyDir, storySlug),
+      arcs: await buildArcs(storyDir, [...urlBase, storySlug]),
     });
   }
   return stories;
+}
+
+async function buildSeries() {
+  const series = [];
+  const nextSlug = slugPool('series');
+
+  for (const [i, entry] of (await orderedDirs(SRC_PDF)).entries()) {
+    const seriesDir = path.join(SRC_PDF, entry.name);
+    const meta = (await readJson(path.join(seriesDir, 'series.json'))) ?? {};
+    const seriesSlug = nextSlug(meta.slug ?? entry.rest, i + 1);
+
+    series.push({
+      slug: seriesSlug,
+      title: meta.title ?? toTitle(entry.rest),
+      description: meta.description ?? '',
+      number: Number.isFinite(entry.order) ? entry.order : i + 1,
+      stories: await buildStories(seriesDir, [seriesSlug]),
+    });
+  }
+  return series;
 }
 
 async function main() {
@@ -171,14 +192,16 @@ async function main() {
   await fs.mkdir(OUT_PDF, { recursive: true });
   await fs.mkdir(path.dirname(OUT_MANIFEST), { recursive: true });
 
-  const stories = await buildStories();
-  const allArcs = stories.flatMap((s) => s.arcs);
+  const series = await buildSeries();
+  const allStories = series.flatMap((s) => s.stories);
+  const allArcs = allStories.flatMap((s) => s.arcs);
 
   const manifest = {
     generatedAt: new Date().toISOString(),
-    stories,
+    series,
     totals: {
-      stories: stories.length,
+      series: series.length,
+      stories: allStories.length,
       arcs: allArcs.length,
       chapters: allArcs.reduce((n, a) => n + a.chapters.length, 0),
     },
@@ -209,13 +232,16 @@ async function main() {
 
   const { totals } = manifest;
   console.log(
-    `content: ${totals.stories} story(ies), ${totals.arcs} arc(s), ${totals.chapters} chapter(s)` +
-      (totals.chapters === 0 ? '  (drop PDFs into pdf/<story>/<arc>/ to populate)' : '')
+    `content: ${totals.series} series, ${totals.stories} story(ies), ${totals.arcs} arc(s), ${totals.chapters} chapter(s)` +
+      (totals.chapters === 0 ? '  (drop PDFs into pdf/<series>/<story>/<arc>/ to populate)' : '')
   );
-  for (const s of stories) {
-    console.log(`  ${s.slug}  "${s.title}"`);
-    for (const a of s.arcs) {
-      console.log(`    ${a.slug}  "${a.title}"  -> ${a.chapters.length} chapter(s)`);
+  for (const se of series) {
+    console.log(`  ${se.slug}  "${se.title}"`);
+    for (const s of se.stories) {
+      console.log(`    ${s.slug}  "${s.title}"`);
+      for (const a of s.arcs) {
+        console.log(`      ${a.slug}  "${a.title}"  -> ${a.chapters.length} chapter(s)`);
+      }
     }
   }
 }
